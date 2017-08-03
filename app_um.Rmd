@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = T, message = F, warning = F)
+knitr::opts_chunk$set(echo = T, message = F, warning = T)
 ```
 
 ### APP/ $\mu$ analysis
@@ -20,8 +20,12 @@ Publication standard plots are readily produced once labels and journal style ar
 
 R is an open-source programming language, and users create "packages" which can be installed by running the command `install.packages("package_name_in_quotes")` then loading them by running `library(package_name_without_quotes)` (after the package is installed it becomes an "object" and R doesn't recognise character strings in quotes as objects).
 
-```{r libs}
-library(reshape2)
+```{r libs, warning = F}
+# install.packages("dplyr")
+# install.packages("ggplot2")
+# install.packages("lme4")
+# install.packages("lmerTest")
+
 library(ggplot2)
 library(dplyr)
 library(lme4)
@@ -58,7 +62,7 @@ ggplot(df, aes(x = genotype, y = app.um.ratio, colour = nocodazole)) +
 
 ```
 
-I've chosen a violin plot because it gives an idea of the "shape" or distribution of the data. The bars show median and 95% confidence intervals estimated from the standard errors. I've used colour and facets to split up the data into informative sub-groups. We can see at a glance that the samples are probably drawn from a normally a distributed population, but we'll have a look and see if a $log$ transformation helps anyway (spoiler alert - it doesn't help enough to matter). R is a 'functional' language, which means we can use functions anywhere we like, including in the middle of a call to ggplot (look at `y =` in the `aes`thetics)
+I've chosen a violin plot because it gives an idea of the "shape" or distribution of the data. The bars show median and 95% confidence intervals estimated from the standard errors. I've used colour and facets to split up the data into informative sub-groups. We can see at a glance that the samples are probably drawn from a normal distribution, but we'll have a look and see if a $log$ transformation helps anyway (spoiler alert - it doesn't help enough to matter). R is a 'functional' language, which means we can use functions anywhere we like, including in the middle of a call to ggplot (look at `y =` in the `aes`thetics)
 
 ```{r transformed plots}
 ggplot(df, aes(x = genotype, y = log(app.um.ratio), colour = nocodazole)) +
@@ -94,7 +98,7 @@ Unfortunately, there is a problem here - pseudo-replication. If we look at the d
 summary(aov(app.um.ratio ~ taxol + Error(taxol/embryo), data = df.taxol))
 ```
 
-...which throws an error because we don't have observations for every between-subjects condition for every embryo (it's an "unbalanced" design). Rather than a "complete cases" analysis (which would reduce our data-set to observations from a single embryo) we'll use a mixed model which can deal with both the pseudo-replication and the unbalanced design. The specification is very similar, and you'll notice that the `Mean Sq` for the fixed effect `taxol` is almost identical.
+...which gives us a warning because we don't have observations for every between-subjects condition for every embryo (it's an "unbalanced" design). Rather than a "complete cases" analysis (which would reduce our data-set to observations from a single embryo) we'll use a mixed model which can deal with both the pseudo-replication and the unbalanced design. The specification is very similar, and you'll notice that the `Mean Sq` for the fixed effect `taxol` is almost identical.
 
 ```{r mixed effects}
 me.taxol <- lmer(app.um.ratio ~ taxol + (1|embryo), data = df.taxol)
