@@ -75,6 +75,7 @@ with three levels of nocodazole (0, 10, 100), and
 \[app = taxol + \epsilon\]
 with three levels of taxol (0, 10, 100)
 
+
 Let's start with one of the simple experiments, app ~ taxol. We're only interested in cells from `wt` mice that weren't treated with nocodazol. So let's make a new object, `df.taxol` that only contains these observations. There are several ways to do this, but the simplest is to use a function `filter` from the `dplyr` library. The first argument is the source of the data, and the following arguments are the conditions. Note the use of `==`, these are logical statements not equalities (or assignments).
 
 
@@ -85,7 +86,7 @@ ggplot(df.taxol, aes(x = taxol, y = app.um.ratio, colour = mother)) +
   facet_wrap(~ embryo)
 ```
 
-Unfortunately, there is a problem here - pseudo-replication. If we look at the data frame, `df.taxol` we have `r nrow(df.taxol)` observations. Unfortunately this doesn't mean we have `r nrow(df.taxol) - 1` degrees of freedom from `r nrow(df.taxol)` observations. In fact, we have cells from just five embryos (assuming embryo 1 didn't come from two mothers!), and we have embryos from just two mothers. If we wanted to be (tediously and excessively) critical we might even draw attention to the fact that cells from only one embryo were exposed to all levels of the treatment.
+Unfortunately, there is a problem here - pseudo-replication. If we look at the data frame, `df.taxol` we have `r nrow(df.taxol)` observations. Unfortunately this doesn't mean we have `r nrow(df.taxol) - 1` degrees of freedom from `r nrow(df.taxol)` observations. In fact, we have cells from just five embryos, and we have embryos from just two mothers.
 
 "Analysis of Variance" is exactly what it says on the package - an analysis of variance. We need to be very careful with inference when we've only sampled from five animals. Most of our data points tell us a lot about the variance of repeated samples within embryos, and very little about variance within the population. We can analyse these data (with care to avoid pseudo-replication) - but if we get small p-values, we need to be careful not to over-interpret the results. For an excellent chapter on pseudo-replication, see [Crawley](http://www3.imperial.ac.uk/pls/portallive/docs/1/1171923.PDF) who suggests we start with a nested analysis using ANOVA...  (first making sure that the embryos are uniquely labelled)
 
@@ -96,11 +97,63 @@ summary(aov(app.um.ratio ~ taxol + Error(taxol/embryo), data = df.taxol))
 ...which throws an error because we don't have observations for every between-subjects condition for every embryo (it's an "unbalanced" design). Rather than a "complete cases" analysis (which would reduce our data-set to observations from a single embryo) we'll use a mixed model which can deal with both the pseudo-replication and the unbalanced design. The specification is very similar, and you'll notice that the `Mean Sq` for the fixed effect `taxol` is almost identical.
 
 ```{r mixed effects}
-me <- lmer(app.um.ratio ~ taxol + (1|embryo), data = df.taxol)
-anova(me)
+me.taxol <- lmer(app.um.ratio ~ taxol + (1|embryo), data = df.taxol)
+anova(me.taxol)
 ```
 
 
+There is no evidence $p = .285$ that taxol has an effect on the number of APP/$\mu$. Do we believe this? Let's look at a plot representing the main effect -
+
+```{r taxol main effect}
+ggplot(df.taxol, aes(x = taxol, y = app.um.ratio)) +
+    geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) 
 
 
+```
 
+Yes, we should believe this.  How about the effect of nocodazole?
+
+
+```{r df.nocodazole}
+df.nocodazole <- filter(df, genotype == 'wt', taxol == 0)
+ggplot(df.nocodazole, aes(x = nocodazole, y = app.um.ratio, colour = mother)) +
+  geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) +
+  facet_wrap(~ embryo)
+
+ggplot(df.nocodazole, aes(x = nocodazole, y = app.um.ratio)) +
+    geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) 
+```
+
+This looks a bit more promising, despite a similar issue of pseudo-replication.
+
+```{r}
+me.nocodazole <- lmer(app.um.ratio ~ nocodazole + (1|embryo), data = df.nocodazole)
+anova(me.nocodazole)
+```
+
+We have evidence to reject the null hypothesis that nocodazole has no effect on APP/$\mu$.
+
+
+```{r}
+df.interaction <- filter(df, nocodazole == 0, taxol != 100)  # != means "not equal to"
+
+ggplot(df.interaction, aes(x = taxol, y = app.um.ratio, colour = genotype)) +
+  geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) +
+  facet_wrap(~ embryo)
+
+ggplot(df.interaction, aes(x = taxol, y = app.um.ratio, colour = genotype)) +
+  geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) 
+
+```
+
+It looks like cells from `tg` embryos have higher APP/$\mu$ ratios, and that a low dose of taxol brings this down.
+
+
+```{r interaction}
+me.interaction <- lmer(app.um.ratio ~ genotype*taxol + (1|embryo), data = df.interaction)
+anova(me.interaction)
+
+
+```
+
+There is evidence to support a genotype*taxol interaction.
