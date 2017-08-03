@@ -58,7 +58,7 @@ ggplot(df, aes(x = genotype, y = app.um.ratio, colour = nocodazole)) +
 
 ```
 
-I've chosen a violin plot because it gives an idea of the "shape" or distribution of the data. The bars show mean and 95% confidence intervals estimated from the standard errors. I've used colour and facets to split up the data into informative sub-groups. We can see at a glance that the samples are probably drawn from a normally a distributed population, but we'll have a look and see if a $log$ transformation helps anyway (spoiler alert - it doesn't help enough to matter). R is a 'functional' language, which means we can use functions anywhere we like, including in the middle of a call to ggplot (look at `y =` in the `aes`thetics)
+I've chosen a violin plot because it gives an idea of the "shape" or distribution of the data. The bars show median and 95% confidence intervals estimated from the standard errors. I've used colour and facets to split up the data into informative sub-groups. We can see at a glance that the samples are probably drawn from a normally a distributed population, but we'll have a look and see if a $log$ transformation helps anyway (spoiler alert - it doesn't help enough to matter). R is a 'functional' language, which means we can use functions anywhere we like, including in the middle of a call to ggplot (look at `y =` in the `aes`thetics)
 
 ```{r transformed plots}
 ggplot(df, aes(x = genotype, y = log(app.um.ratio), colour = nocodazole)) +
@@ -88,7 +88,7 @@ ggplot(df.taxol, aes(x = taxol, y = app.um.ratio, colour = mother)) +
 
 Unfortunately, there is a problem here - pseudo-replication. If we look at the data frame, `df.taxol` we have `r nrow(df.taxol)` observations. Unfortunately this doesn't mean we have `r nrow(df.taxol) - 1` degrees of freedom from `r nrow(df.taxol)` observations. In fact, we have cells from just five embryos, and we have embryos from just two mothers.
 
-"Analysis of Variance" is exactly what it says on the package - an analysis of variance. We need to be very careful with inference when we've only sampled from five animals. Most of our data points tell us a lot about the variance of repeated samples within embryos, and very little about variance within the population. We can analyse these data (with care to avoid pseudo-replication) - but if we get small p-values, we need to be careful not to over-interpret the results. For an excellent chapter on pseudo-replication, see [Crawley](http://www3.imperial.ac.uk/pls/portallive/docs/1/1171923.PDF) who suggests we start with a nested analysis using ANOVA...  (first making sure that the embryos are uniquely labelled)
+"Analysis of Variance" is exactly what it says on the package - an analysis of variance. We need to be very careful with inference when we've only sampled from five animals. Most of our data points tell us a lot about the variance of repeated samples within embryos, and very little about variance within the population. We can analyse these data (with care to avoid pseudo-replication) - but if we get small p-values, we need to be careful not to over-interpret the results. For an excellent chapter on pseudo-replication, see [Crawley](http://www3.imperial.ac.uk/pls/portallive/docs/1/1171923.PDF) who suggests we start with a nested analysis using ANOVA...  
 
 ```{r nested ANOVA}
 summary(aov(app.um.ratio ~ taxol + Error(taxol/embryo), data = df.taxol))
@@ -111,7 +111,9 @@ ggplot(df.taxol, aes(x = taxol, y = app.um.ratio)) +
 
 ```
 
-Yes, we should believe this.  How about the effect of nocodazole?
+Yes, we should believe this.  So how exactly did we get around this problem of pseudo-replication?  We estimated both fixed and random effects. In an experiment there are factors that the experimenter has control over (or can measure), and we call these 'fixed' effects because we assume they have some fixed effect. There may also be variables that the experimenter has little control over. Whatever the effect of an individual embryo is (and there will be an effect) is unknown before the experiment and must be estimated after the fact. We can't say there is a fixed effect of each embryo, but we can estimate the distribution of effects of within embryo variability and take this into account. This allows us to relax the assumption of independence, and to analyse data from unbalanced designs.
+
+#### Nocodazole
 
 
 ```{r df.nocodazole}
@@ -133,6 +135,7 @@ anova(me.nocodazole)
 
 We have evidence to reject the null hypothesis that nocodazole has no effect on APP/$\mu$.
 
+#### Genotype * taxol interaction
 
 ```{r}
 df.interaction <- filter(df, nocodazole == 0, taxol != 100)  # != means "not equal to"
@@ -156,4 +159,4 @@ anova(me.interaction)
 
 ```
 
-There is evidence to support a genotype*taxol interaction.
+There is evidence to support a genotype\*taxol interaction. Again, we must stress that our data was sampled from a small number of embryos (*n = 6*), so we must use caution when interpreting these results.
