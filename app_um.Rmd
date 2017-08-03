@@ -1,0 +1,106 @@
+---
+title: "APP/uM immune analysis"
+author: "Bindoff, A."
+date: "3 August 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message = F, warning = F)
+```
+
+### APP/ $\mu$ analysis
+
+
+Data from an experiment investigating APP/$\mu$ was provided as a flat table by AC by email on 2nd August 2017.
+
+Publication standard plots are readily produced once labels and journal style are specified.  
+
+### Statistical Appendix
+
+R is an open-source programming language, and users create "packages" which can be installed by running the command `install.packages("package_name_in_quotes")` then loading them by running `library(package_name_without_quotes)` (after the package is installed it becomes an "object" and R doesn't recognise character strings in quotes as objects).
+
+```{r libs}
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+
+```
+
+
+
+#### Exploratory plots
+
+First we need to load the data into an R object. I opened the Excel file then "Save As" a .csv file with an easy to remember name. `read.csv` loads data from a .csv file, using the first row to name the columns. I assign the data to object `df`, then have a look at the first few rows with `head(df)`. We notice that `vehicle`, `nocodazole`, `embryo` and `taxol` are fixed quantities so we need to convert them to factors so that R doesn't treat them as continuous variables. The `$` sign tells R to deal with the named part of the `df` object (it is not the only way that we can manipulate objects in R, so it's worth looking at some basic tutorials if this is unfamiliar).
+
+
+```{r load data}
+df <- read.csv("app_um.csv")
+head(df)
+df$vehicle <- factor(df$vehicle)
+df$taxol <- factor(df$taxol)
+df$nocodazole <- factor(df$nocodazole)
+# re-label embryo 1 from mother ace37 so that all embryos have a unique identifier
+df$embryo[df$mother == "ace37"] <- 0
+df$embryo <- factor(df$embryo)
+
+
+```
+
+The `ggplot2` library makes graphical exploration of your data very easy. The `gg` stands for "grammar of graphics", and it takes a bit of effort to learn this grammar but the package is well documented and there are lots and lots of tutorials aimed at beginners. 
+
+```{r plots}
+ggplot(df, aes(x = genotype, y = app.um.ratio, colour = nocodazole)) +
+  geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) +
+  facet_wrap(~ taxol)
+
+```
+
+I've chosen a violin plot because it gives an idea of the "shape" or distribution of the data. The bars show mean and 95% confidence intervals estimated from the standard errors. I've used colour and facets to split up the data into informative sub-groups. We can see at a glance that the samples are probably drawn from a normally a distributed population, but we'll have a look and see if a $log$ transformation helps anyway (spoiler alert - it doesn't help enough to matter). R is a 'functional' language, which means we can use functions anywhere we like, including in the middle of a call to ggplot (look at `y =` in the `aes`thetics)
+
+```{r transformed plots}
+ggplot(df, aes(x = genotype, y = log(app.um.ratio), colour = nocodazole)) +
+  geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) +
+  facet_wrap(~ taxol)
+
+```
+
+From the informatively coloured and faceted plots we can see that there were three experiments,
+\[app = genotype*taxol + \epsilon\]
+with two levels of taxol (0, 10), and
+\[app = nocodazole + \epsilon\]
+with three levels of nocodazole (0, 10, 100), and
+\[app = taxol + \epsilon\]
+with three levels of taxol (0, 10, 100)
+
+Let's start with one of the simple experiments, app ~ taxol. We're only interested in cells from `wt` mice that weren't treated with nocodazol. So let's make a new object, `df.taxol` that only contains these observations. There are several ways to do this, but the simplest is to use a function `filter` from the `dplyr` library. The first argument is the source of the data, and the following arguments are the conditions. Note the use of `==`, these are logical statements not equalities (or assignments).
+
+
+```{r df.taxol}
+df.taxol <- filter(df, genotype == 'wt', nocodazole == 0)
+ggplot(df.taxol, aes(x = taxol, y = app.um.ratio, colour = mother)) +
+  geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) +
+  facet_wrap(~ embryo)
+```
+
+Unfortunately, there is a problem here - pseudo-replication. If we look at the data frame, `df.taxol` we have `r nrow(df.taxol)` observations. Unfortunately this doesn't mean we have `r nrow(df.taxol) - 1` degrees of freedom from `r nrow(df.taxol)` observations. In fact, we have cells from just five embryos (assuming embryo 1 didn't come from two mothers!), and we have embryos from just two mothers. If we wanted to be (tediously and excessively) critical we might even draw attention to the fact that cells from only one embryo were exposed to all levels of the treatment.
+
+"Analysis of Variance" is exactly what it says on the package - an analysis of variance. We need to be very careful with inference when we've only sampled from five animals. Most of our data points tell us a lot about the variance of repeated samples within embryos, and very little about variance within the population. We can analyse these data (with care to avoid pseudo-replication) - but if we get small p-values, we need to be careful not to over-interpret the results. For an excellent chapter on pseudo-replication, see [Crawley](http://www3.imperial.ac.uk/pls/portallive/docs/1/1171923.PDF) who suggests we start with a nested analysis using ANOVA...  (first making sure that the embryos are uniquely labelled)
+
+```{r nested ANOVA}
+summary(aov(app.um.ratio ~ taxol + Error(taxol/embryo), data = df.taxol))
+```
+
+...which throws an error because we don't have observations for every between-subjects condition for every embryo (it's an "unbalanced" design). Rather than a "complete cases" analysis (which would reduce our data-set to observations from a single embryo) we'll use a mixed model which can deal with both the pseudo-replication and the unbalanced design. The specification is very similar, and you'll notice that the `Mean Sq` for the fixed effect `taxol` is almost identical.
+
+```{r mixed effects}
+me <- lmer(app.um.ratio ~ taxol + (1|embryo), data = df.taxol)
+anova(me)
+```
+
+
+
+
+
