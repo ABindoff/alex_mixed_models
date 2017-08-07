@@ -1,0 +1,174 @@
+---
+title: "Pseudoreplication and mixed models"
+author: "Bindoff, A."
+date: "4 August 2017"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+```{r, echo = F}
+library(lme4)
+library(lmerTest)
+library(ggplot2)
+
+set.seed(1)
+n <- 2  # a multiplier to control samples size (n was a bad choice of name!)
+
+```
+
+## Pseudoreplication and mixed models
+
+We simulate a lab experiment that takes cells from four mouse embryos, and two mothers. Investigators are blinded, so some cells end up in an experimental group and others end up in a control group without the investigator having knowledge of which embryo or mother the cells came from. A measure `y` is observed for each cell (we don't know exactly what `y` is but it's continuous, and normally distributed).
+
+
+```{r simulation}
+mean.treatment.effect <- 1.5
+sd.treatment <- sd.control <- 1
+random.embryo.effect <- c(0, -1, 1, -0.5)
+random.mother.effect <- 0
+
+df <- data.frame(embryo = factor(c(rep("a", n*10),
+                                   rep("b", n*15), rep("c", n*5), rep("d", n*10))),
+                 mother = factor(c(rep(0, n*10), rep(1, n*20), rep(0, n*10))),
+                 treatment = factor(c(rep(0, n*5), rep(1, n*10), rep(0, n*15), rep(1, n*10))),
+                 ranef.em = c(rnorm(n*10, random.embryo.effect[1L], 0.1),
+                               rnorm(n*15, random.embryo.effect[2L], 0.1),
+                               rnorm(n*5,  random.embryo.effect[3L], 0.1),
+                               rnorm(n*10, random.embryo.effect[4L], 0.1)),
+                 ranef.mo = c(rnorm(n*10, random.mother.effect, 0.1),
+                               rnorm(n*20, 0, 0.1),
+                               rnorm(n*10, random.mother.effect, 0.1)))
+
+
+y0 = c(rnorm(n*5, 0, sd.control),
+      rnorm(n*10, mean.treatment.effect, sd.treatment),
+      rnorm(n*15, 0, sd.control),
+      rnorm(n*10, mean.treatment.effect, sd.treatment))
+
+df$y <- y0 + df$ranef.em + df$ranef.mo
+
+ggplot(df, aes(x = treatment, y = y, colour = embryo)) + 
+  geom_boxplot() +
+  facet_wrap(~mother)
+
+xtabs(~ embryo + treatment, df)
+
+```
+
+The first issue we can see is that cells from embryo `c` were allocated only to the control condition, and cells from embryo `d` were allocated only to the treatment condition so any effect of `treatment` might be confounded by `embryo` for these observations. If we consider only embryo `a` and `b`, we have an unbalanced design. Additionally, there is a strong random effect for embryos `b` and `c`. We're missing information about the `treatment` effect of `c` so this might affect our estimate of the random effect of embryo `c`. 
+
+Fortunately, we know what the 'true' effects of interest are, so all that remains is to specify our model correctly and see how good the resulting estimates are. Ignoring the true number of replicates and random effects, we fit a general linear model as if each observation is a true replicate -
+
+```{r, echo = F}
+summary(m1 <- lm(y ~ treatment, df))
+```
+
+The effect of treatment is estimated as `r round(m1$coefficients, 5)`, and we know the 'true' treatment effect, `r mean.treatment.effect` with zero intercept. The adjusted $R^2$ = `r summary(m1)$adj.r.squared`, so we know that this is a poor explanatory model, and we can't trust the p-value because the summary tells us it was calculated using one source of error variance and more Degrees of Freedom than possible with the number of replicates we have.
+
+A better model would recognise that we have just four replicates, and that most of our observations are only useful in estimating the within-embryo variance (or within-mother variance?). If we had a balanced design would could estimate this within-embryo variance using ANOVA, but that's not the case here. We can, however, use mixed models quite happily.
+
+```{r, echo = F}
+(m2 <- lmer(y ~ treatment + (1|mother/embryo), df))
+```
+
+The estimated treatment effect is within an acceptable range. How well were the random effects estimated?
+
+```{r, echo = F}
+k1 <- data.frame(ranef(m2)$embryo, random.embryo.effect)
+names(k1) = c("estimated", "true")
+k2 <- data.frame(ranef(m2)$mother, random.mother.effect)
+names(k2) = c("estimated", "true")
+print(k1)
+print(k2)
+```
+
+The estimated random effects of `embryo` and `mother` are a reasonable representation of reality. Adding a true effect of `mother` - 
+
+```{r simulation2}
+
+random.mother.effect <- c(-0.9, 1)
+
+df$ranef.mo <- c(rnorm(n*10, random.mother.effect[1L], 0.1),
+                 rnorm(n*20, random.mother.effect[2L], 0.1),
+                 rnorm(n*10, random.mother.effect[1L], 0.1))
+
+df$y <- y0 + df$ranef.em + df$ranef.mo
+
+ggplot(df, aes(x = treatment, y = y, colour = embryo)) + 
+  geom_boxplot() +
+  facet_wrap(~mother)
+
+```
+
+```{r, echo = F}
+(m2 <- lmer(y ~ treatment + (1|mother/embryo), df))
+
+```
+
+The treatment effect is close to the true treatment effect (see "Fixed Effects:" at the bottom of the summary). How well were the random effects estimated?
+
+```{r, echo = F}
+k1 <- data.frame(ranef(m2)$embryo, random.embryo.effect)
+names(k1) = c("estimated", "true")
+k2 <- data.frame(ranef(m2)$mother, random.mother.effect)
+names(k2) = c("estimated", "true")
+print(k1)
+print(k2)
+```
+
+A question for the brave, why is the estimated random effect of `mother` symmetric?  What implications does this have? *(Chapter 11 of "Data Analysis Using Regression and Multilevel/Hierarchical Models" (Gelman & Hill, 2007) discusses the issue of the minimum number of groups for a mixed model).*
+
+
+Comparing the (definitely incorrect) ANOVA with the mixed effects model (in case you're wondering, we obtain p-values by loading the `lmerTest` package *before* fitting the model with `lmer`) -
+
+```{r}
+anova(m1 <- lm(y ~ treatment, df))
+anova(m2)
+```
+
+We can see that using all of the available information can lead to better estimates, and more power to detect treatment effects. Further, we did not violate the assumption of independence or falsely inflate our p-value with pseudoreplication.
+
+To compare our incorrectly specified general linear model (ANOVA with too many degrees of freedom) and our correctly specified mixed model, we predict a mean and confidence interval for each level of treatment using each model. However, in order to correctly incorporate model uncertainty in the mixed model, we will need to use a procedure known as "bootstrapping" - which requires us to draw many samples from the data (with replacement), making predictions from our model.
+
+```{r}
+nsim = 500
+df.new <- df
+
+bootfit <- bootMer(m2, FUN=function(x) predict(x, df.new, re.form = NA),
+                   nsim = nsim,
+                   parallel = "multicore",
+                   ncpus = 3L)
+
+df.new$lwr.boot <- apply(bootfit$t, 2, quantile, 0.025)
+df.new$upr.boot <- apply(bootfit$t, 2, quantile, 0.975)
+df.new$y0 <- apply(bootfit$t, 2, mean)
+prd <- predict(m1, interval = "confidence")
+df.new <- cbind(df.new, data.frame(prd))
+```
+
+```{r, echo = F}
+ggplot(df.new, aes(x = treatment, y = y0)) +
+   geom_point(position = position_jitter(), aes(x = treatment, y = y, colour = embryo)) +
+  geom_point(position = position_dodge(width = 0.25)) +
+     geom_errorbar(position = position_dodge(width = 0.25), aes(ymax=upr.boot, ymin=lwr.boot), width=.1) +
+     geom_errorbar(aes(ymax = upr, ymin = lwr), width = 0.1, colour = "red") +
+     geom_point(aes(y = fit, colour = "red")) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) 
+
+
+
+boot.effect <- df.new$y0[26]-df.new$y0[1]
+glm.effect <- df.new$fit[26]-df.new$fit[1]
+```
+
+
+The effect of treatment predicted by bootstrapping is `r round(boot.effect, 2)`, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect predicted by the general linear model, `r round(glm.effect, 2)`. The confidence interval estimated using the general linear model is excessively narrow, due to the large number of pseudoreplicates. This neatly highlights the issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates in general.
+  
+  
