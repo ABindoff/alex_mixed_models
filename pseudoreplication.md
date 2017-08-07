@@ -6,7 +6,7 @@ Bindoff, A.
 Pseudoreplication and mixed models
 ----------------------------------
 
-We simulate a lab experiment that takes cells from four mouse embryos, and two mothers. Investigators are blinded, so some cells end up in an experimental group and others end up in a control group without the investigator having knowledge of which embryo or mother the cells came from. A measure `y` is observed for each cell (we don't know exactly what `y` is but it's continuous, and normally distributed).
+We simulate a lab experiment that takes cells from four mouse embryos, and two mothers. Investigators are blinded, and some cells end up having a treatment applied and others do not. The investigator has no knowledge of which embryo (or mother) the cells came from until after the experiment. A measure `y` is observed for each cell (we don't know exactly what `y` is but it's continuous, and normally distributed).
 
 ``` r
 mean.treatment.effect <- 1.5
@@ -75,7 +75,7 @@ Fortunately, we know what the 'true' effects of interest are, so all that remain
     ## Multiple R-squared:  0.1508, Adjusted R-squared:  0.1399 
     ## F-statistic: 13.85 on 1 and 78 DF,  p-value: 0.0003725
 
-The effect of treatment is estimated as -0.09926, 1.06265, and we know the 'true' treatment effect, 1.5 with zero intercept. The adjusted *R*<sup>2</sup> = 0.1398669, so we know that this is a poor explanatory model, and we can't trust the p-value because the summary tells us it was calculated using one source of error variance and more Degrees of Freedom than possible with the number of replicates we have.
+The effect of treatment is estimated as -0.09926, 1.06265, and we know the 'true' treatment effect, 1.5 with zero intercept. We can't trust the p-value because the summary tells us it was calculated using one source of error variance and more Degrees of Freedom than possible with the number of replicates we have.
 
 A better model would recognise that we have just four replicates, and that most of our observations are only useful in estimating the within-embryo variance (or within-mother variance?). If we had a balanced design would could estimate this within-embryo variance using ANOVA, but that's not the case here. We can, however, use mixed models quite happily.
 
@@ -197,4 +197,4 @@ df.new <- cbind(df.new, data.frame(prd))
 
 ![](pseudoreplication_files/figure-markdown_github/unnamed-chunk-9-1.png)
 
-The effect of treatment predicted by bootstrapping is 1.42, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect predicted by the general linear model, 0.11. The confidence interval estimated using the general linear model is excessively narrow, due to the large number of pseudoreplicates. This neatly highlights the issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates in general.
+The effect of treatment predicted by bootstrapping is 1.42, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect predicted by the general linear model, 0.11. The confidence interval estimated using the general linear model (in red) is excessively narrow, due to the large number of pseudoreplicates. This neatly highlights the issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates in general.
