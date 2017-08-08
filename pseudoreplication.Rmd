@@ -28,7 +28,7 @@ We simulate a lab experiment that takes cells from four mouse embryos, which are
 ```{r simulation}
 mean.treatment.effect <- 1.5
 sd.treatment <- sd.control <- 1
-random.embryo.effect <- c(0, -1, 1, -0.5)
+random.embryo.effect <- scale(c(0, -1, 1, -0.5))
 random.mother.effect <- 0
 
 df <- data.frame(embryo = factor(c(rep("a", n*10),
@@ -94,7 +94,7 @@ Adding a true effect of `mother` -
 
 ```{r simulation2}
 
-random.mother.effect <- c(-0.9, 1)
+random.mother.effect <- c(-1, 1)
 
 df$ranef.mo <- c(rnorm(n*10, random.mother.effect[1L], 0.1),
                  rnorm(n*20, random.mother.effect[2L], 0.1),
