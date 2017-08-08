@@ -22,7 +22,7 @@ n <- 2  # a multiplier to control samples size (n was a bad choice of name!)
 
 ## Pseudoreplication and mixed models
 
-We simulate a lab experiment that takes cells from four mouse embryos, and two mothers. Investigators are blinded, and some cells end up having a treatment applied and others do not. The investigator has no knowledge of which embryo (or mother) the cells came from until after the experiment. A measure `y` is observed for each cell (we don't know exactly what `y` is but it's continuous, and normally distributed).
+We simulate a lab experiment that takes cells from four mouse embryos, which are from two mothers. Under blinded conditions, some cells have a treatment applied and the remainder serve as controls. The investigator has no knowledge of which embryo (or mother) the cells came from until after the experiment. A continuous, and normally distributed measure `y` is taken of each cell.
 
 
 ```{r simulation}
@@ -59,17 +59,20 @@ xtabs(~ embryo + treatment, df)
 
 ```
 
-The first issue we can see is that cells from embryo `c` were allocated only to the control condition, and cells from embryo `d` were allocated only to the treatment condition so any effect of `treatment` might be confounded by `embryo` for these observations. If we consider only embryo `a` and `b`, we have an unbalanced design. Additionally, there is a strong random effect for embryos `b` and `c`. We're missing information about the `treatment` effect of `c` so this might affect our estimate of the random effect of embryo `c`. 
+The first issue we can see is that cells from embryo `c` were allocated only to the control condition, and cells from embryo `d` were allocated only to the treatment condition so any effect of `treatment` might be confounded by `embryo` for these observations (or perhaps the effect of `embryo` might be confounded by `treatment`?) If we consider only embryo `a` and `b`, we have an unbalanced design. Additionally, there is a strong effect for embryos `b` and `c`. We call this effect a 'random' effect because these embryos are drawn at random from the population, and we might want to estimate the *distribution* of `embryo` effects, rather than a 'fixed' effect (which we can control or choose).
 
-Fortunately, we know what the 'true' effects of interest are, so all that remains is to specify our model correctly and see how good the resulting estimates are. Ignoring the true number of replicates and random effects, we fit a general linear model as if each observation is a true replicate -
+Fortunately, we know what the 'true' effects of interest are, so all that remains is to specify our model correctly and see how good the resulting estimates are.  
+
+Ignoring the true number of replicates and random effects, we fit a general linear model as if each observation is a true replicate -
 
 ```{r, echo = F}
 summary(m1 <- lm(y ~ treatment, df))
 ```
 
-The effect of treatment is estimated as `r round(m1$coefficients, 5)`, and we know the 'true' treatment effect, `r mean.treatment.effect` with zero intercept. We can't trust the p-value because the summary tells us it was calculated using one source of error variance and more Degrees of Freedom than possible with the number of replicates we have.
+The effect of treatment is estimated as `r round(m1$coefficients, 5)`, and we know the 'true' treatment effect, `r mean.treatment.effect` with zero intercept. We can't trust the p-value because the summary tells us it was calculated using one source of error variance and more Degrees of Freedom than possible with the number of replicates we have. 
 
-A better model would recognise that we have just four replicates, and that most of our observations are only useful in estimating the within-embryo variance (or within-mother variance?). If we had a balanced design would could estimate this within-embryo variance using ANOVA, but that's not the case here. We can, however, use mixed models quite happily.
+A better model would recognise that we have just four embryos, and that our many observations tell us a lot about within-embryo variance (or within-mother variance?), but much less about between-embryo variance. If we had a balanced design would could use information from all available sources of variance, with the correct degrees of freedom, using ANOVA - but that's not the case here. We can, however, use mixed models quite happily. A correctly specified mixed model will estimate random and fixed effects appropriately, recognising that observations from the same embryo are not independent.  
+
 
 ```{r, echo = F}
 (m2 <- lmer(y ~ treatment + (1|mother/embryo), df))
@@ -86,7 +89,8 @@ print(k1)
 print(k2)
 ```
 
-The estimated random effects of `embryo` and `mother` are a reasonable representation of reality. Adding a true effect of `mother` - 
+
+Adding a true effect of `mother` - 
 
 ```{r simulation2}
 
@@ -109,7 +113,8 @@ ggplot(df, aes(x = treatment, y = y, colour = embryo)) +
 
 ```
 
-The treatment effect is close to the true treatment effect (see "Fixed Effects:" at the bottom of the summary). How well were the random effects estimated?
+The treatment effect is close to the true treatment effect (see "Fixed Effects:" at the bottom of the summary). Comparing the estimated random effects with the 'true' effects -  
+
 
 ```{r, echo = F}
 k1 <- data.frame(ranef(m2)$embryo, random.embryo.effect)
@@ -123,7 +128,7 @@ print(k2)
 A question for the brave, why is the estimated random effect of `mother` symmetric?  What implications does this have? *(Chapter 11 of "Data Analysis Using Regression and Multilevel/Hierarchical Models" (Gelman & Hill, 2007) discusses the issue of the minimum number of groups for a mixed model).*
 
 
-Comparing the (definitely incorrect) ANOVA with the mixed effects model (in case you're wondering, we obtain p-values by loading the `lmerTest` package *before* fitting the model with `lmer`) -
+Comparing the (definitely incorrect) ANOVA with the mixed effects model -  
 
 ```{r}
 anova(m1 <- lm(y ~ treatment, df))
@@ -132,7 +137,7 @@ anova(m2)
 
 We can see that using all of the available information can lead to better estimates, and more power to detect treatment effects. Further, we did not violate the assumption of independence or falsely inflate our p-value with pseudoreplication.
 
-To compare our incorrectly specified general linear model (ANOVA with too many degrees of freedom) and our correctly specified mixed model, we predict a mean and confidence interval for each level of treatment using each model. However, in order to correctly incorporate model uncertainty in the mixed model, we will need to use a procedure known as "bootstrapping" - which requires us to draw many samples from the data (with replacement), making predictions from our model.
+To compare our incorrectly specified general linear model *(ANOVA with too many degrees of freedom)* and our correctly specified mixed model, we predict a mean and confidence interval for each level of treatment using each model. However, in order to correctly incorporate model uncertainty in the mixed model, we will need to use a procedure known as "bootstrapping" - which requires us to draw many samples from the data (with replacement), making predictions from our model.
 
 ```{r}
 nsim = 500
