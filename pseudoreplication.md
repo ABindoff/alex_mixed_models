@@ -153,7 +153,7 @@ The treatment effect is close to the true treatment effect (see "Fixed Effects:"
 
 A question for the brave, why is the estimated random effect of `mother` symmetric? What implications does this have? *(Chapter 11 of "Data Analysis Using Regression and Multilevel/Hierarchical Models" (Gelman & Hill, 2007) discusses the issue of the minimum number of groups for a mixed model).*
 
-Comparing the (definitely incorrect) ANOVA with the mixed effects model -
+Comparing the (definitely incorrect) ANOVA *m*<sub>1</sub> with the mixed effects model *m*<sub>2</sub> -
 
 ``` r
 anova(m1 <- lm(y ~ treatment, df))
@@ -179,10 +179,10 @@ anova(m2)
 
 We can see that using all of the available information can lead to better estimates, and more power to detect treatment effects. Further, we did not violate the assumption of independence or falsely inflate our p-value with pseudoreplication.
 
-To compare our incorrectly specified general linear model *(ANOVA with too many degrees of freedom)* and our correctly specified mixed model, we predict a mean and confidence interval for each level of treatment using each model. However, in order to correctly incorporate model uncertainty in the mixed model, we will need to use a procedure known as "bootstrapping" - which requires us to draw many samples from the data (with replacement), making predictions from our model.
+As a further comparison, we estimate means and confidence intervals from *m*<sub>1</sub> and *m*<sub>2</sub> by making predictions which incorporate model uncertainty. This is straightforward for *m*<sub>1</sub>, but for the mixed model we need to employ bootstrapping.
 
 ``` r
-nsim = 500
+nsim = 1500
 df.new <- df
 
 bootfit <- bootMer(m2, FUN=function(x) predict(x, df.new, re.form = NA),
@@ -199,4 +199,4 @@ df.new <- cbind(df.new, data.frame(prd))
 
 ![](pseudoreplication_files/figure-markdown_github/unnamed-chunk-9-1.png)
 
-The effect of treatment predicted by bootstrapping is 1.42, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect predicted by the general linear model, 0.02. The confidence interval estimated using the general linear model (in red) is excessively narrow, due to the large number of pseudoreplicates. This neatly highlights the issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates in general.
+The treatment effect point estimate predicted by bootstrapping is 1.43, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect point estimate predicted by *m*<sub>1</sub>, 0.02. The confidence interval estimated using the general linear model (in red) is excessively narrow, due to the large number of pseudoreplicates. This neatly highlights an issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates (in general).
