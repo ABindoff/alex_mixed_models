@@ -6,7 +6,7 @@ Bindoff, A.
 Pseudoreplication and mixed models
 ----------------------------------
 
-We simulate a lab experiment that takes cells from four mouse embryos, which are from two mothers. Under blinded conditions, some cells have a treatment applied and the remainder serve as controls. The investigator has no knowledge of which embryo (or mother) the cells came from until after the experiment. A continuous, and normally distributed measure `y` is taken of each cell.
+We simulate a lab experiment that takes cells from four mouse embryos, and these embryos come from two mothers. Under blinded conditions, some cells have a treatment applied and the remainder serve as controls. The investigator has no knowledge of which embryo (or mother) the cells came from until after the experiment. `y` is the response variable, it is continuous and normally distributed.
 
 ``` r
 mean.treatment.effect <- 1.5
@@ -54,7 +54,7 @@ xtabs(~ embryo + treatment, df)
 
 The first issue we can see is that cells from embryo `c` were allocated only to the control condition, and cells from embryo `d` were allocated only to the treatment condition so any effect of `treatment` might be confounded by `embryo` for these observations (or perhaps the effect of `embryo` might be confounded by `treatment`?) If we consider only embryo `a` and `b`, we have an unbalanced design. Additionally, there is a strong effect for embryos `b` and `c`. We call this effect a 'random' effect because these embryos are drawn at random from the population, and we might want to estimate the *distribution* of `embryo` effects, rather than a 'fixed' effect (which we can control or choose).
 
-Fortunately, we know what the 'true' effects of interest are, so all that remains is to specify our model correctly and see how good the resulting estimates are.
+Fortunately, we know what the 'true' effects of interest are, so it remains to specify our model correctly and see how good the resulting estimates are.
 
 Ignoring the true number of replicates and random effects, we fit a general linear model as if each observation is a true replicate -
 
@@ -79,7 +79,7 @@ Ignoring the true number of replicates and random effects, we fit a general line
 
 The effect of treatment is estimated as 0.00435, 1.01988, and we know the 'true' treatment effect, 1.5 with zero intercept. We can't trust the p-value because the summary tells us it was calculated using one source of error variance and more Degrees of Freedom than possible with the number of replicates we have.
 
-A better model would recognise that we have just four embryos, and that our many observations tell us a lot about within-embryo variance (or within-mother variance?), but much less about between-embryo variance. If we had a balanced design would could use information from all available sources of variance, with the correct degrees of freedom, using ANOVA - but that's not the case here. We can, however, use mixed models quite happily. A correctly specified mixed model will estimate random and fixed effects appropriately, recognising that observations from the same embryo are not independent.
+A better model would recognise that we have just four embryos, and that our many observations tell us a lot about within-embryo variance (or within-mother variance?), but much less about between-embryo variance. If we had a balanced design would could use information from all available sources of variance, with the correct degrees of freedom, with ANOVA - but that's not the case here. We can, however, use mixed models quite happily. A correctly specified mixed model will estimate random and fixed effects appropriately, recognising that observations from the same embryo are not independent.
 
     ## Linear mixed model fit by REML ['merModLmerTest']
     ## Formula: y ~ treatment + (1 | mother/embryo)
@@ -153,7 +153,7 @@ The treatment effect is close to the true treatment effect (see "Fixed Effects:"
 
 A question for the brave, why is the estimated random effect of `mother` symmetric? What implications does this have? *(Chapter 11 of "Data Analysis Using Regression and Multilevel/Hierarchical Models" (Gelman & Hill, 2007) discusses the issue of the minimum number of groups for a mixed model).*
 
-Comparing the (definitely incorrect) ANOVA *m*<sub>1</sub> with the mixed effects model *m*<sub>2</sub> -
+Comparing the (definitely incorrect) ANOVA (let's call this model *m*<sub>1</sub>) with the mixed effects model (let's call this model *m*<sub>2</sub>) -
 
 ``` r
 anova(m1 <- lm(y ~ treatment, df))
@@ -179,16 +179,16 @@ anova(m2)
 
 We can see that using all of the available information can lead to better estimates, and more power to detect treatment effects. Further, we did not violate the assumption of independence or falsely inflate our p-value with pseudoreplication.
 
-As a further comparison, we estimate means and confidence intervals from *m*<sub>1</sub> and *m*<sub>2</sub> by making predictions which incorporate model uncertainty. This is straightforward for *m*<sub>1</sub>, but for the mixed model we need to employ bootstrapping.
+As a further comparison, we estimate means and confidence intervals from *m*<sub>1</sub> and *m*<sub>2</sub> by making predictions which incorporate model uncertainty. This is straightforward for *m*<sub>1</sub>, but for the mixed model we need to employ bootstrapping. If you're running this analysis on your computer it might take a couple of minutes to run.
 
 ``` r
-nsim = 1500
+nsim = 500
 df.new <- df
 
 bootfit <- bootMer(m2, FUN=function(x) predict(x, df.new, re.form = NA),
-                   nsim = nsim,
-                   parallel = "multicore",
-                   ncpus = 3L)
+                   nsim = nsim) # ,
+                   # parallel = "multicore",
+                   # ncpus = 3L)
 
 df.new$lwr.boot <- apply(bootfit$t, 2, quantile, 0.025)
 df.new$upr.boot <- apply(bootfit$t, 2, quantile, 0.975)
@@ -199,4 +199,4 @@ df.new <- cbind(df.new, data.frame(prd))
 
 ![](pseudoreplication_files/figure-markdown_github/unnamed-chunk-9-1.png)
 
-The treatment effect point estimate predicted by bootstrapping is 1.43, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect point estimate predicted by *m*<sub>1</sub>, 0.02. The confidence interval estimated using the general linear model (in red) is excessively narrow, due to the large number of pseudoreplicates. This neatly highlights an issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates (in general).
+The treatment effect point estimate predicted by bootstrapping *m*<sub>2</sub> is 1.42, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect point estimate predicted by *m*<sub>1</sub>, 0.02. The confidence interval estimated using the general linear model (in red) is excessively narrow, due to the large number of pseudoreplicates (you can take a random subset of the data and run the analysis again if you don't believe it). This neatly highlights an issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates (in general).
