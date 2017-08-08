@@ -80,7 +80,7 @@ with three levels of nocodazole (0, 10, 100), and
 with three levels of taxol (0, 10, 100)
 
 
-Let's start with one of the simple experiments, app ~ taxol. We're only interested in cells from `wt` mice that weren't treated with nocodazol. So let's make a new object, `df.taxol` that only contains these observations. There are several ways to do this, but the simplest is to use a function `filter` from the `dplyr` library. The first argument is the source of the data, and the following arguments are the conditions. Note the use of `==`, these are logical statements not equalities (or assignments).
+Let's start with one of the simple experiments, app ~ taxol. We're only interested in cells from `wt` mice that weren't treated with nocodazole. So let's make a new object, `df.taxol` that only contains these observations. There are several ways to do this, but the simplest is to use a function `filter` from the `dplyr` library. The first argument is the source of the data, and the following arguments are the conditions. Note the use of `==`, these are logical statements not equalities (or assignments).
 
 
 ```{r df.taxol}
@@ -90,15 +90,15 @@ ggplot(df.taxol, aes(x = taxol, y = app.um.ratio, colour = mother)) +
   facet_wrap(~ embryo)
 ```
 
-Unfortunately, there is a problem here - pseudo-replication. If we look at the data frame, `df.taxol` we have `r nrow(df.taxol)` observations. Unfortunately this doesn't mean we have `r nrow(df.taxol) - 1` degrees of freedom from `r nrow(df.taxol)` observations. In fact, we have cells from just five embryos, and we have embryos from just two mothers.
+Unfortunately, there is a problem here - pseudoreplication. If we look at the data frame, `df.taxol` we have `r nrow(df.taxol)` observations. Unfortunately this doesn't mean we have `r nrow(df.taxol) - 1` degrees of freedom from `r nrow(df.taxol)` observations. In fact, we have cells from just five embryos, and those embryos come from just two mothers. Let's assume that mother doesn't matter for the analysis.
 
-"Analysis of Variance" is exactly what it says on the package - an analysis of variance. We need to be very careful with inference when we've only sampled from five animals. Most of our data points tell us a lot about the variance of repeated samples within embryos, and very little about variance within the population. We can analyse these data (with care to avoid pseudo-replication) - but if we get small p-values, we need to be careful not to over-interpret the results. For an excellent chapter on pseudo-replication, see [Crawley](http://www3.imperial.ac.uk/pls/portallive/docs/1/1171923.PDF) who suggests we start with a nested analysis using ANOVA...  
+"Analysis of Variance" is exactly what it says on the package - an analysis of variance. We need to be very careful with inference when we've only sampled from five animals. Most of our data points tell us a lot about the variance within embryos, and very little about variance within the population. We can analyse these data (with care to avoid pseudo-replication) - but if we get small p-values, we need to be careful not to over-interpret the results. For an excellent chapter on pseudo-replication, see [Crawley](http://www3.imperial.ac.uk/pls/portallive/docs/1/1171923.PDF) who suggests we start with a nested analysis using ANOVA...  
 
 ```{r nested ANOVA}
 summary(aov(app.um.ratio ~ taxol + Error(taxol/embryo), data = df.taxol))
 ```
 
-...which gives us a warning because we don't have observations for every between-subjects condition for every embryo (it's an "unbalanced" design). Rather than a "complete cases" analysis (which would reduce our data-set to observations from a single embryo) we'll use a mixed model which can deal with both the pseudo-replication and the unbalanced design. The specification is very similar, and you'll notice that the `Mean Sq` for the fixed effect `taxol` is almost identical.
+...which gives us a warning because we don't have observations for every between-subjects condition for every embryo. Rather than a "complete cases" analysis (which would reduce our data-set to observations from a single embryo) we'll use a mixed model which can deal with both the pseudo-replication and the unbalanced design. The specification is very similar, and you'll notice that the `Mean Sq` for the fixed effect `taxol` is almost identical.
 
 ```{r mixed effects}
 me.taxol <- lmer(app.um.ratio ~ taxol + (1|embryo), data = df.taxol)
@@ -130,7 +130,7 @@ ggplot(df.nocodazole, aes(x = nocodazole, y = app.um.ratio)) +
     geom_violin(draw_quantiles = c(0.025, 0.5, 0.975)) 
 ```
 
-This looks a bit more promising, despite a similar issue of pseudo-replication.
+This looks a bit more promising, despite similar issues to the previous experiment.
 
 ```{r}
 me.nocodazole <- lmer(app.um.ratio ~ nocodazole + (1|embryo), data = df.nocodazole)
@@ -157,7 +157,7 @@ It looks like cells from `tg` embryos have higher APP/$\mu$ ratios, and that a l
 
 
 ```{r interaction}
-me.interaction <- lmer(app.um.ratio ~ genotype*taxol + (1|embryo), data = df.interaction)
+me.interaction <- lmer(app.um.ratio ~ genotype*taxol + (1|embryo/genotype), data = df.interaction)
 anova(me.interaction)
 
 
