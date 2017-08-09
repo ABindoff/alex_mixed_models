@@ -179,24 +179,24 @@ anova(m2)
 
 We can see that using all of the available information can lead to better estimates, and more power to detect treatment effects. Further, we did not violate the assumption of independence or falsely inflate our p-value with pseudoreplication.
 
-As a further comparison, we estimate means and confidence intervals from *m*<sub>1</sub> and *m*<sub>2</sub> by making predictions which incorporate model uncertainty. This is straightforward for *m*<sub>1</sub>, but for the mixed model we need to employ bootstrapping. If you're running this analysis on your computer it might take a couple of minutes to run.
+As a further comparison, we estimate means and confidence intervals from *m*<sub>1</sub> and *m*<sub>2</sub>, incorporating model uncertainty.
 
 ``` r
-nsim = 500
-df.new <- df
+ci.m2 <- data.frame(confint(m2, method = "boot"))
+names(ci.m2) <- c("m2.lwr", "m2.upr")
+ci.m1 <- data.frame(confint(m1, method = "boot"))
+names(ci.m1) <- c("m1.lwr", "m1.upr")
 
-bootfit <- bootMer(m2, FUN=function(x) predict(x, df.new, re.form = NA),
-                   nsim = nsim) # ,
-                   # parallel = "multicore",
-                   # ncpus = 3L)
-
-df.new$lwr.boot <- apply(bootfit$t, 2, quantile, 0.025)
-df.new$upr.boot <- apply(bootfit$t, 2, quantile, 0.975)
-df.new$y0 <- apply(bootfit$t, 2, mean)
-prd <- predict(m1, interval = "confidence")
-df.new <- cbind(df.new, data.frame(prd))
+df.ci <- data.frame(treatment = factor(c(0, 1)),
+                    m2.lwr = ci.m2[4:5,1],
+                    m2.upr = ci.m2[4:5,2],
+                    m1.lwr = ci.m1[,1],
+                    m1.upr = ci.m1[,2])
+df.ci$m2.mean <- (df.ci$m2.upr-df.ci$m2.lwr)/2 + df.ci$m2.lwr
+df.ci$m1.mean <- (df.ci$m1.upr-df.ci$m1.lwr)/2 + df.ci$m1.lwr
+df <- dplyr::inner_join(df, df.ci)
 ```
 
 ![](pseudoreplication_files/figure-markdown_github/unnamed-chunk-9-1.png)
 
-The treatment effect point estimate predicted by bootstrapping *m*<sub>2</sub> is 1.42, which is remarkably close to the simulated treatment effect. Compare this to the treatment effect point estimate predicted by *m*<sub>1</sub>, 0.02. The confidence interval estimated using the general linear model (in red) is excessively narrow, due to the large number of pseudoreplicates (you can take a random subset of the data and run the analysis again if you don't believe it). This neatly highlights an issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates (in general).
+The treatment effect point estimate predicted by bootstrapping *m*<sub>2</sub> is 1.36, which is close to the simulated treatment effect. Compare this to the treatment effect point estimate predicted by *m*<sub>1</sub>, -0.51. The confidence interval estimated for *m*<sub>1</sub> (in red) is excessively narrow, due to the large number of pseudoreplicates (you can take a random subset of the data and run the analysis again if you don't believe it). This neatly highlights an issue of falsely drawing inference from an experiment with such a small number of replicates. Drawing samples from more embryos would give a better estimate of variability due to treatment within the *population*. In fact, although we did not show it here, drawing fewer samples from more replicates is better than more samples from fewer replicates (in general).
