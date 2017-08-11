@@ -52,7 +52,8 @@ y0 = c(rnorm(n*5, 0, sd.control),
 df$y <- y0 + df$ranef.em + df$ranef.mo
 
 ggplot(df, aes(x = treatment, y = y, colour = embryo)) + 
-  geom_boxplot() +
+  geom_violin() +
+  geom_point(position = position_dodge(width = 0.9), alpha = 1/4, size = 7/2) +
   facet_wrap(~mother)
 
 xtabs(~ embryo + treatment, df)
@@ -103,7 +104,8 @@ df$ranef.mo <- c(rnorm(n*10, random.mother.effect[1L], 0.1),
 df$y <- y0 + df$ranef.em + df$ranef.mo
 
 ggplot(df, aes(x = treatment, y = y, colour = embryo)) + 
-  geom_boxplot() +
+  geom_violin() +
+  geom_point(position = position_dodge(width = 0.9), alpha = 1/4, size = 7/2) +
   facet_wrap(~mother)
 
 ```
@@ -158,7 +160,7 @@ df <- dplyr::inner_join(df, df.ci)
 
 ```{r, echo = F}
 ggplot(df, aes(x = treatment, y = y)) +
-   geom_point(position = position_jitter(width = 0.1), aes(x = treatment, y = y, colour = embryo)) +
+   geom_point(position = position_jitter(width = 0.1), aes(x = treatment, y = y, colour = embryo), alpha = 1/2, size = 5/2) +
    geom_errorbar(aes(ymin = m1.lwr, ymax = m1.upr), width = 0.2, colour = "red") + 
    geom_point(aes(y =m1.mean), colour = "red") +
    geom_errorbar(aes(ymin = m2.lwr, ymax = m2.upr), width = 0.2, colour = "grey40") +

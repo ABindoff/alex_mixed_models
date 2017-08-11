@@ -35,7 +35,8 @@ y0 = c(rnorm(n*5, 0, sd.control),
 df$y <- y0 + df$ranef.em + df$ranef.mo
 
 ggplot(df, aes(x = treatment, y = y, colour = embryo)) + 
-  geom_boxplot() +
+  geom_violin() +
+  geom_point(position = position_dodge(width = 0.9), alpha = 1/4, size = 7/2) +
   facet_wrap(~mother)
 ```
 
@@ -119,7 +120,8 @@ df$ranef.mo <- c(rnorm(n*10, random.mother.effect[1L], 0.1),
 df$y <- y0 + df$ranef.em + df$ranef.mo
 
 ggplot(df, aes(x = treatment, y = y, colour = embryo)) + 
-  geom_boxplot() +
+  geom_violin() +
+  geom_point(position = position_dodge(width = 0.9), alpha = 1/4, size = 7/2) +
   facet_wrap(~mother)
 ```
 
