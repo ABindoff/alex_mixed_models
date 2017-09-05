@@ -1,0 +1,109 @@
+---
+title: "Mitochondria velocity"
+author: "Bindoff, A."
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message = F, warning = T)
+```
+
+
+Data from an experiment investigating mitochondria velocity was provided as a flat table by AC by email on 4th September 2017.
+
+Publication standard plots are readily produced once labels and journal style are specified.  
+
+### Statistical Appendix
+
+
+```{r libs, warning = F}
+# install.packages("dplyr")
+# install.packages("ggplot2")
+# install.packages("lme4")
+# install.packages("lmerTest")
+
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+
+```
+
+
+
+#### Exploratory plots
+
+First we need to load the data into an R object. I opened the Excel file then "Save As" a .csv file with an easy to remember name. `read.csv` loads data from a .csv file, using the first row to name the columns. I assign the data to object `df`, then have a look at the first few rows with `head(df)`. The `$` sign tells R to deal with the named part of the `df` object (it is not the only way that we can manipulate objects in R, so it's worth looking at some basic tutorials if this is unfamiliar).
+
+
+```{r load data}
+df <- read.csv("mito_velocity.csv")
+head(df)
+
+# where data have come from a spreadsheet (rather than a database) it is good practice to
+# be explicit about what type each variable is if it could be interpreted in more than one way
+# for example, taxol could be interpreted as an integer, a continuous variable, or a factor with m levels
+df$vehicle <- factor(df$vehicle)
+df$embryo <- factor(df$embryo)
+
+# column names with spaces get '.' where the spaces were, create a new column and get rid of the old one
+df$t.dur <- factor(df$treatment.duration..hours.)
+df <- df[, -5]
+
+# melt puts the data into 'long' form
+# this is important because we want to be able to treat 0 as a control level,
+# but if cells were exposed to 0 taxol, but 10 nocodazole - they are not a control
+
+df <- melt(df, id.vars = c("mother", "embryo", "coverslip", "genotype", "t.dur", "velocity", "vehicle"), value.name = "treatment", variable.name = "agent")
+
+
+```
+
+The `ggplot2` library makes graphical exploration of your data very easy. The `gg` stands for "grammar of graphics", and it takes a bit of effort to learn this grammar but the package is well documented and there are lots and lots of tutorials aimed at beginners. 
+
+We want 'treatment' to be continuous, numeric data - but if we plot it that way it's not informative so when we call `ggplot` we wrap it in `factor()` so that we can see the treatment levels. We also log transform `velocity` and check that the distribution looks approximately normal.  
+
+```{r plots}
+ggplot(df, aes(x = agent, y = log(velocity), fill = factor(treatment))) +
+  geom_violin(draw_quantiles = c(0.025, 0.5, 0.975))
+```
+
+Cross-tabulate to get an idea of sample sizes
+
+```{r df.taxol}
+with(df, table(treatment, agent))
+
+xtabs(treatment/treatment ~ mother + agent, data = df)
+
+with(df, table(t.dur, treatment))
+```
+
+Test treatment * duration interaction for each agent
+
+```{r mixed effects}
+m1 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "taxol"))
+summary(m1)
+
+m2 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "nocodazole"))
+summary(m2)
+
+m3 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "jasplakinolide"))
+summary(m3)
+
+m4 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "latruculin"))
+summary(m4)
+
+```
+
+
+In all cases there is no significant interaction, no significant main effect of agent, but there is a significant main effect of treatment duration.
+
+Test for main effect of treatment duration for controls only
+
+```{r}
+m5 <- lmer(log(velocity) ~ t.dur + (1|mother), filter(df, treatment == 0))
+summary(m5)
+```
+
+There is a significant main effect of treatment duration - **even when no treatment has been applied**, suggesting that the effect is unrelated to treatment.
