@@ -5,7 +5,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = T, message = F, warning = T)
+knitr::opts_chunk$set(echo = F, message = F, warning = T)
 ```
 
 
@@ -178,3 +178,7 @@ summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
 confint(g1s)
 
 ```
+
+
+  
+Consider analysing the main effect of treatment without conditioning on treatment duration if necessary. I'll let you figure out how to do it. Hint: copy the code block above and change the filter.
