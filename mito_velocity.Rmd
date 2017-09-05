@@ -26,6 +26,7 @@ library(ggplot2)
 library(reshape2)
 library(dplyr)
 library(lme4)
+library(multcomp)
 library(lmerTest)
 
 ```
@@ -48,15 +49,28 @@ df$vehicle <- factor(df$vehicle)
 df$embryo <- factor(df$embryo)
 
 # column names with spaces get '.' where the spaces were, create a new column and get rid of the old one
-df$t.dur <- factor(df$treatment.duration..hours.)
+df$t.dur <- df$treatment.duration..hours.
 df <- df[, -5]
+
+# create a control
+df$control <- as.integer(df$taxol == 0 & df$latruculin == 0 & df$nocodazole ==0 & df$jasplakinolide == 0)
+df$t.dur[df$control == 1] <- 0
+zero2na <- function(x){
+  x[x == 0] <- NA
+  return(x)
+}
+
+df[,c(6,7,8,9,12)] <- apply(df[,c(6,7,8,9,12)], 2, zero2na)
+
+i <- which(df$control == 1)
+df[i, c(6,7,8,9)] <- 0
+
 
 # melt puts the data into 'long' form
 # this is important because we want to be able to treat 0 as a control level,
 # but if cells were exposed to 0 taxol, but 10 nocodazole - they are not a control
 
-df <- melt(df, id.vars = c("mother", "embryo", "coverslip", "genotype", "t.dur", "velocity", "vehicle"), value.name = "treatment", variable.name = "agent")
-
+df <- melt(df, id.vars = c("mother", "embryo", "coverslip", "genotype", "t.dur", "velocity", "vehicle", "control"), value.name = "treatment", variable.name = "agent", na.rm = T)
 
 ```
 
@@ -71,39 +85,96 @@ ggplot(df, aes(x = agent, y = log(velocity), fill = factor(treatment))) +
 
 Cross-tabulate to get an idea of sample sizes
 
-```{r df.taxol}
+```{r}
 with(df, table(treatment, agent))
 
 xtabs(treatment/treatment ~ mother + agent, data = df)
 
 with(df, table(t.dur, treatment))
+
 ```
 
-Test treatment * duration interaction for each agent
+Test main effect of treatment for each agent, conditioning on treatment duration = 2h
 
 ```{r mixed effects}
-m1 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "taxol"))
-summary(m1)
+df0 <- filter(df, agent == "taxol", t.dur != 24) %>% mutate(dose = factor(treatment))
 
-m2 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "nocodazole"))
-summary(m2)
-
-m3 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "jasplakinolide"))
-summary(m3)
-
-m4 <- lmer(log(velocity) ~ treatment*t.dur + (1|mother), filter(df, agent == "latruculin"))
-summary(m4)
-
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
 ```
-
-
-In all cases there is no significant interaction, no significant main effect of agent, but there is a significant main effect of treatment duration.
-
-Test for main effect of treatment duration for controls only
+Notice no p-value in the ANOVA table here. This is because there is only one 'mother' for each condition, so the degrees of freedom are zero.  
 
 ```{r}
-m5 <- lmer(log(velocity) ~ t.dur + (1|mother), filter(df, treatment == 0))
-summary(m5)
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
 ```
 
-There is a significant main effect of treatment duration - **even when no treatment has been applied**, suggesting that the effect is unrelated to treatment.
+The Tukey contrasts are still correct, but must be interpreted with caution. The lesson here is to remember that you're working with small numbers of replicates and for each experimental condition you lose degrees of freedom. This means you should strive for balanced experimental designs.
+
+
+```{r}
+df0 <- filter(df, agent == "nocodazole", t.dur != 24) %>% mutate(dose = factor(treatment))
+
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
+
+df0 <- filter(df, agent == "jasplakinolide", t.dur != 24) %>% mutate(dose = factor(treatment))
+
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
+
+df0 <- filter(df, agent == "latruculin", t.dur != 24) %>% mutate(dose = factor(treatment))
+
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
+```
+
+You would report the results along the lines of "a mixed model showed there was no significant effect of dose (F(2, 15.9) = 2.34, p = .128)"
+
+
+```{r}
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
+
+
+```
+
+The confidence intervals can probably go into a table (unless you want to figure out how to plot them?), with the p-values reported as "Tukey Contrasts". It's worth searching papers in your field with the terms "mixed model Tukey" to see how others are reporting this sort of result.  
+  
+  
+Test main effect of treatment for each agent, conditioning on treatment duration = 24h
+
+```{r}
+df0 <- filter(df, agent == "taxol", t.dur != 2) %>% mutate(dose = factor(treatment))
+
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
+
+df0 <- filter(df, agent == "nocodazole", t.dur != 2) %>% mutate(dose = factor(treatment))
+
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
+
+df0 <- filter(df, agent == "jasplakinolide", t.dur != 2) %>% mutate(dose = factor(treatment))
+
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
+
+df0 <- filter(df, agent == "latruculin", t.dur != 2) %>% mutate(dose = factor(treatment))
+
+m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
+anova(m1)
+summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
+confint(g1s)
+
+```
