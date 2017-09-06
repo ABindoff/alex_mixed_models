@@ -38,7 +38,7 @@ library(lmerTest)
 First we need to load the data into an R object. I opened the Excel file then "Save As" a .csv file with an easy to remember name. `read.csv` loads data from a .csv file, using the first row to name the columns. I assign the data to object `df`, then have a look at the first few rows with `head(df)`. The `$` sign tells R to deal with the named part of the `df` object (it is not the only way that we can manipulate objects in R, so it's worth looking at some basic tutorials if this is unfamiliar).
 
 
-```{r load data}
+```{r load data, echo = F}
 df <- read.csv("mito_velocity.csv")
 head(df)
 
@@ -78,14 +78,14 @@ The `ggplot2` library makes graphical exploration of your data very easy. The `g
 
 We want 'treatment' to be continuous, numeric data - but if we plot it that way it's not informative so when we call `ggplot` we wrap it in `factor()` so that we can see the treatment levels. We also log transform `velocity` and check that the distribution looks approximately normal.  
 
-```{r plots}
+```{r plots, echo = F}
 ggplot(df, aes(x = agent, y = log(velocity), fill = factor(treatment))) +
   geom_violin(draw_quantiles = c(0.025, 0.5, 0.975))
 ```
 
 Cross-tabulate to get an idea of sample sizes
 
-```{r}
+```{r, echo = F}
 with(df, table(treatment, agent))
 
 xtabs(treatment/treatment ~ mother + agent, data = df)
@@ -95,6 +95,8 @@ with(df, table(t.dur, treatment))
 ```
 
 Test main effect of treatment for each agent, conditioning on treatment duration = 2h
+
+#### Taxol, 2h
 
 ```{r mixed effects}
 df0 <- filter(df, agent == "taxol", t.dur != 24) %>% mutate(dose = factor(treatment))
@@ -111,6 +113,7 @@ confint(g1s)
 
 The Tukey contrasts are still correct, but must be interpreted with caution. The lesson here is to remember that you're working with small numbers of replicates and for each experimental condition you lose degrees of freedom. This means you should strive for balanced experimental designs.
 
+#### Nocodazole, 2h
 
 ```{r}
 df0 <- filter(df, agent == "nocodazole", t.dur != 24) %>% mutate(dose = factor(treatment))
@@ -119,14 +122,23 @@ m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
 anova(m1)
 summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
 confint(g1s)
+```
 
+
+#### Jasp, 2h
+
+```{r}
 df0 <- filter(df, agent == "jasplakinolide", t.dur != 24) %>% mutate(dose = factor(treatment))
 
 m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
 anova(m1)
 summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
 confint(g1s)
+```
 
+#### Latruculin, 2h
+
+```{r}
 df0 <- filter(df, agent == "latruculin", t.dur != 24) %>% mutate(dose = factor(treatment))
 
 m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
@@ -145,6 +157,8 @@ confint(g1s)
 
 The confidence intervals can probably go into a table (unless you want to figure out how to plot them?), with the p-values reported as "Tukey Contrasts". It's worth searching papers in your field with the terms "mixed model Tukey" to see how others are reporting this sort of result.  
   
+
+#### Taxol, 24h
   
 Test main effect of treatment for each agent, conditioning on treatment duration = 24h
 
@@ -155,21 +169,38 @@ m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
 anova(m1)
 summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
 confint(g1s)
+```
 
+#### Nocodazole, 24h
+
+```{r}
 df0 <- filter(df, agent == "nocodazole", t.dur != 2) %>% mutate(dose = factor(treatment))
 
 m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
 anova(m1)
 summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
 confint(g1s)
+```
 
+#### Jasp, 24h
+
+
+```{r}
 df0 <- filter(df, agent == "jasplakinolide", t.dur != 2) %>% mutate(dose = factor(treatment))
 
 m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
 anova(m1)
+
+# compare with a model without random effects - look at Residual Df (DenDf in previous table)
+#anova(lm(log(velocity) ~ dose, df0))
+
 summary(g1s <- glht(m1, linfct=mcp(dose = "Tukey")))
 confint(g1s)
+```
 
+#### Latruculin, 24h
+
+```{r}
 df0 <- filter(df, agent == "latruculin", t.dur != 2) %>% mutate(dose = factor(treatment))
 
 m1 <- lmer(log(velocity) ~ dose + (1|mother), df0)
@@ -179,6 +210,8 @@ confint(g1s)
 
 ```
 
-
   
-Consider analysing the main effect of treatment without conditioning on treatment duration if necessary. I'll let you figure out how to do it. Hint: copy the code block above and change the filter.
+    
+    
+  
+Consider analysing the main effect of treatment without conditioning on treatment duration if necessary. I'll let you figure out how to do it. Hint: copy the 4 code blocks above and change the filter each time.
